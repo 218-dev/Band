@@ -1,8 +1,2 @@
 Flask
 flask_socketio
-smtplib
-captcha
-uuid
-threading
-time
-random
