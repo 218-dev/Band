@@ -1,101 +1,86 @@
-import os
-os.system("pip install flask_socketio")
-os.system("pip install SocketIO")
-from flask import Flask, render_template, request, session
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, request, flash, Response, session
 import smtplib
+from time import sleep
 import threading
-import time
-import uuid
-from captcha.image import ImageCaptcha
-import random
-import os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode='threading')
+app.secret_key = 'your_secret_key_here'  # مفتاح سري لأغراض التشفير
 
-# تخزين المهام النشطة
-active_tasks = {}
+# حالة الإرسال العامة
+status = {
+    'running': False,
+    'progress': 0,
+    'total': 0,
+    'current': 0,
+    'stop': False
+}
 
-# توليد CAPTCHA
-def generate_captcha():
-    captcha_text = ''.join(random.choices('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k=6))
-    image = ImageCaptcha().generate(captcha_text)
-    return captcha_text, image
-
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    captcha_text, captcha_image = generate_captcha()
-    session['captcha'] = captcha_text
-    return render_template('index.html', captcha_image=captcha_image.decode('utf-8'))
+    if request.method == 'POST':
+        if status['running']:
+            flash('عملية إرسال جارية بالفعل!', 'error')
+            return render_template('form.html')
+        
+        # حفظ الإعدادات في الجلسة
+        session['email'] = request.form.get('email')
+        session['password'] = request.form.get('password')
+        session['victim'] = request.form.get('victim')
+        session['subject'] = request.form.get('subject')
+        session['message_body'] = request.form.get('message_body')
+        session['number'] = int(request.form.get('number'))
+        
+        # بدء الإرسال في thread منفصل
+        threading.Thread(target=send_emails).start()
+        
+    return render_template('form.html')
 
-def send_emails_task(task_id, email_data):
+def send_emails():
     try:
+        status.update({
+            'running': True,
+            'progress': 0,
+            'total': session['number'],
+            'current': 0,
+            'stop': False
+        })
+        
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.ehlo()
         server.starttls()
-        server.login(email_data['sender_email'], email_data['app_password'])
+        server.login(session['email'], session['password'])
         
-        for i in range(email_data['number']):
-            if active_tasks[task_id]['stop']:
+        message = f"Subject: {session['subject']}\n\n{session['message_body']}"
+        
+        for i in range(session['number']):
+            if status['stop']:
                 break
-            
-            msg = f"Subject: {email_data['subject']}\n\n{email_data['message']}"
-            server.sendmail(email_data['sender_email'], [email_data['victim_email']], msg)
-            
-            socketio.emit('progress_update', {
-                'current': i+1,
-                'total': email_data['number'],
-                'task_id': task_id
-            }, room=task_id)
-            time.sleep(1)
+                
+            server.sendmail(session['email'], [session['victim']], message)
+            status['current'] = i + 1
+            status['progress'] = int((status['current'] / status['total']) * 100)
+            sleep(0.1)
             
         server.quit()
-        active_tasks[task_id]['status'] = 'completed' if not active_tasks[task_id]['stop'] else 'stopped'
         
     except Exception as e:
-        active_tasks[task_id]['status'] = f'error: {str(e)}'
+        status['stop'] = True
+        flash(f'حدث خطأ: {str(e)}', 'error')
     finally:
-        socketio.emit('task_complete', {'task_id': task_id}, room=task_id)
+        status['running'] = False
 
-@socketio.on('start_task')
-def handle_start_task(data):
-    task_id = str(uuid.uuid4())
-    active_tasks[task_id] = {
-        'stop': False,
-        'status': 'running',
-        'thread': None
-    }
-    
-    # التحقق من CAPTCHA
-    if data['captcha'].upper() != session.get('captcha', '').upper():
-        emit('captcha_error', {'message': 'رمز التحقق غير صحيح'})
-        return
-    
-    # بدء المهمة في ثانٍية منفصلة
-    email_data = {
-        'sender_email': data['email'],
-        'app_password': data['password'],
-        'victim_email': data['victim'],
-        'subject': data['subject'],
-        'message': data['message'],
-        'number': int(data['number'])
-    }
-    
-    thread = threading.Thread(target=send_emails_task, args=(task_id, email_data))
-    active_tasks[task_id]['thread'] = thread
-    thread.start()
-    
-    emit('task_started', {'task_id': task_id})
+@app.route('/progress')
+def progress():
+    def generate():
+        while status['running']:
+            yield f"data:{status['progress']}|{status['current']}|{status['total']}\n\n"
+            sleep(0.5)
+    return Response(generate(), mimetype='text/event-stream')
 
-@socketio.on('stop_task')
-def handle_stop_task(data):
-    task_id = data['task_id']
-    if task_id in active_tasks:
-        active_tasks[task_id]['stop'] = True
-        emit('task_stopped', {'task_id': task_id}, room=task_id)
+@app.route('/stop', methods=['POST'])
+def stop():
+    status['stop'] = True
+    return '', 204
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    app.run(debug=True)
