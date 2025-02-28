@@ -1,2 +1,3 @@
-Flask
-flask_socketio
+Flask==2.3.2
+Flask-SocketIO==5.3.4
+python-socketio==5.7.2
