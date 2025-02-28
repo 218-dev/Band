@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>نظام الإبلاغ عن المحتوى المسيء</title>
+    <style>
+        body { direction: rtl; font-family: Tahoma; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        #captcha-img { margin: 10px 0; border: 1px solid #ccc; }
+        #progress-container {
+            display: none;
+            margin: 20px 0;
+            background: #f5f5f5;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 20px;
+            background: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        #stop-btn {
+            display: none;
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button[type="submit"] {
+            background: #2196F3;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: #2c3e50;">نظام الإبلاغ عن المحتوى غير القانوني</h1>
+        
+        <form id="report-form">
+            <!-- حقول الإدخال -->
+            <div class="form-group">
+                <label>البريد الإلكتروني:</label>
+                <input type="email" name="email" required>
+            </div>
+
+            <div class="form-group">
+                <label>كلمة مرور التطبيق:</label>
+                <input type="password" name="password" required>
+            </div>
+
+            <div class="form-group">
+                <label>البريد المستهدف:</label>
+                <input type="email" name="victim" required>
+            </div>
+
+            <div class="form-group">
+                <label>عنوان الرسالة:</label>
+                <input type="text" name="subject" required>
+            </div>
+
+            <div class="form-group">
+                <label>محتوى الرسالة:</label>
+                <textarea name="message" rows="8" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>عدد الرسائل:</label>
+                <input type="number" name="number" min="1" required>
+            </div>
+
+            <div class="form-group">
+                <label>رمز التحقق:</label>
+                <img id="captcha-img" src="data:image/png;base64,{{ captcha_image }}" alt="CAPTCHA">
+                <input type="text" name="captcha" required>
+            </div>
+
+            <button type="submit">بدء الإرسال</button>
+            <button type="button" id="stop-btn">إيقاف الإرسال</button>
+        </form>
+
+        <!-- عرض التقدم -->
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+            <div id="progress-text" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
