@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>الإبلاغ عن إساءة للأطفال</title>
+    <style>
+        body {
+            direction: rtl;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .form-group textarea {
+            height: 150px;
+        }
+        .flash {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #cce5ff;
+            color: #004085;
+        }
+        #progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+        #progress-bar {
+            width: 100%;
+            background: #ddd;
+            height: 30px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+        #status-text {
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        #stop-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            display: block;
+            margin: 10px auto;
+        }
+        #stop-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>نموذج الإبلاغ عن محتوى مسيء</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="form-group">
+            <label>بريدك الإلكتروني:</label>
+            <input type="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+            <label>كلمة مرور التطبيق:</label>
+            <input type="password" name="password" required>
+        </div>
+
+        <div class="form-group">
+            <label>بريد الدعم:</label>
+            <input type="email" name="victim" value="stopCA@telegram.org" required>
+        </div>
+
+        <div class="form-group">
+            <label>موضوع الرسالة:</label>
+            <input type="text" name="subject" value="Illegal child abuse group +12" required>
+        </div>
+
+        <div class="form-group">
+            <label>محتوى الرسالة:</label>
+            <textarea name="message_body" required>
+Dear Telegram Support Team,
+I am writing to urgently report a Telegram group that is sharing images of child abuse and exploitation, which is a severe violation of Telegram's policies and international laws. This content is illegal, harmful, and must be removed immediately to protect the victims and prevent further harm.
+I urge you to take immediate action by shutting down this group and reporting its administrators to the relevant authorities. Please prioritize this issue as it concerns the safety and well-being of children.
+I will provide the group details below.
+
+Group link: https://t.me/oahvsnw
+Group ID: 2347745524
+            </textarea>
+        </div>
+
+        <div class="form-group">
+            <label>عدد الرسائل:</label>
+            <input type="number" name="number" min="1" required>
+        </div>
+
+        <button type="submit">بدء الإرسال</button>
+    </form>
+
+    <div id="progress-container">
+        <div id="progress-bar">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="status-text">جار الإرسال: 0/0 (0%)</div>
+        <button id="stop-btn" onclick="stopSending()">إيقاف الإرسال</button>
+    </div>
+
+    <script>
+        const eventSource = new EventSource('/progress');
+        const progressContainer = document.getElementById('progress-container');
+        const progressFill = document.getElementById('progress-fill');
+        const statusText = document.getElementById('status-text');
+        const form = document.querySelector('form');
+
+        eventSource.onmessage = function(e) {
+            const [progress, current, total] = e.data.split('|');
+            progressFill.style.width = progress + '%';
+            statusText.textContent = `جار الإرسال: ${current}/${total} (${progress}%)`;
+        }
+
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            form.style.display = 'none';
+            progressContainer.style.display = 'block';
+            fetch('/', { method: 'POST', body: new FormData(form) });
+        });
+
+        function stopSending() {
+            fetch('/stop', { method: 'POST' })
+                .then(() => {
+                    statusText.textContent += ' - تم الإيقاف';
+                    document.getElementById('stop-btn').disabled = true;
+                });
+        }
+    </script>
+</body>
+</html>
